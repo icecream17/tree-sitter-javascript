@@ -11,6 +11,9 @@ import defaultMember, { member1, member2 as alias2 } from "module-name";
 import defaultMember, * as name from "module-name";
 import "module-name";
 import { member1 , member2 as alias2, } from "module-name";
+import("a");
+import("a").then((m) => {});
+import.meta.url;
 
 ----
 
@@ -32,7 +35,25 @@ import { member1 , member2 as alias2, } from "module-name";
   (import_statement
     (string))
   (import_statement
-    (import_clause (named_imports (import_specifier (identifier)) (import_specifier (identifier) (identifier)))) (string)))
+    (import_clause (named_imports (import_specifier (identifier)) (import_specifier (identifier) (identifier)))) (string))
+  (expression_statement
+    (call_expression
+      (import)
+      (arguments (string))))
+  (expression_statement
+    (call_expression
+      (member_expression
+        (call_expression
+          (import)
+          (arguments (string)))
+        (property_identifier))
+      (arguments (arrow_function (formal_parameters (identifier)) (statement_block)))))
+  (expression_statement
+    (member_expression
+      (member_expression
+        (import)
+        (property_identifier))
+      (property_identifier))))
 
 ============================================
 Exports
@@ -110,7 +131,15 @@ export class Foo {
 
 ---
 
-(program (export_statement (decorator (call_expression (identifier) (arguments))) (class (identifier) (class_body))))
+(program
+  (export_statement
+    decorator: (decorator
+      (call_expression
+        function: (identifier)
+        arguments: (arguments)))
+    declaration: (class_declaration
+      name: (identifier)
+      body: (class_body))))
 
 ============================================
 If statements
@@ -127,14 +156,23 @@ if (a.b) {
 ----
 
 (program
-  (if_statement (parenthesized_expression (identifier))
-    (expression_statement (call_expression
-      (identifier) (arguments (identifier)))))
-  (if_statement (parenthesized_expression (member_expression (identifier) (property_identifier)))
-    (statement_block
-      (expression_statement (call_expression
-        (identifier) (arguments (identifier))))
-      (expression_statement (identifier)))))
+  (if_statement
+    condition: (parenthesized_expression (identifier))
+    consequence: (expression_statement
+      (call_expression
+        function: (identifier)
+        arguments: (arguments (identifier)))))
+  (if_statement
+    condition: (parenthesized_expression (member_expression
+      object: (identifier)
+      property: (property_identifier)))
+    consequence: (statement_block
+      (expression_statement
+        (call_expression
+          function: (identifier)
+          arguments: (arguments (identifier))))
+      (expression_statement
+        (identifier)))))
 
 ============================================
 If-else statements
@@ -155,16 +193,21 @@ if (a) {
 ----
 
 (program
-  (if_statement (parenthesized_expression (identifier))
-    (expression_statement (identifier))
-    (if_statement (parenthesized_expression (identifier))
-      (expression_statement (identifier))))
-  (if_statement (parenthesized_expression (identifier))
-    (statement_block
+  (if_statement
+    condition: (parenthesized_expression (identifier))
+    consequence: (expression_statement (identifier))
+    alternative: (else_clause
+      (if_statement
+        condition: (parenthesized_expression (identifier))
+        consequence: (expression_statement (identifier)))))
+  (if_statement
+    condition: (parenthesized_expression (identifier))
+    consequence: (statement_block
       (expression_statement (identifier))
       (expression_statement (identifier)))
-    (statement_block
-      (expression_statement (identifier)))))
+    alternative: (else_clause
+      (statement_block
+        (expression_statement (identifier))))))
 
 ============================================
 For statements
@@ -190,33 +233,46 @@ for (var i = 0
 
 (program
   (for_statement
-    (variable_declaration
-      (variable_declarator (identifier))
-      (variable_declarator (identifier)))
-    (expression_statement (identifier))
-    (identifier)
-    (expression_statement (identifier)))
+    initializer: (variable_declaration
+      (variable_declarator name: (identifier))
+      (variable_declarator name: (identifier)))
+    condition: (expression_statement (identifier))
+    increment: (identifier)
+    body: (expression_statement (identifier)))
 
   (for_statement
-    (expression_statement (sequence_expression
-      (assignment_expression (identifier) (number))
-      (call_expression (identifier) (arguments))))
-    (expression_statement (binary_expression (identifier) (number)))
-    (update_expression (identifier))
-    (expression_statement (call_expression (identifier) (arguments (identifier)))))
+    initializer: (expression_statement (sequence_expression
+      left: (assignment_expression
+        left: (identifier)
+        right: (number))
+      right: (call_expression
+        function: (identifier)
+        arguments: (arguments))))
+    condition: (expression_statement (binary_expression
+      left: (identifier)
+      right: (number)))
+    increment: (update_expression argument: (identifier))
+    body: (expression_statement (call_expression
+      function: (identifier)
+      arguments: (arguments (identifier)))))
 
   (for_statement
-    (empty_statement)
-    (empty_statement)
-    (statement_block
+    initializer: (empty_statement)
+    condition: (empty_statement)
+    body: (statement_block
       (expression_statement (identifier))
       (continue_statement)))
 
   (for_statement
-    (variable_declaration (variable_declarator (identifier) (number)))
-    (expression_statement (binary_expression (identifier) (identifier)))
-    (update_expression (identifier))
-    (expression_statement (object))))
+    initializer: (variable_declaration (variable_declarator
+      name: (identifier)
+      value: (number)))
+    condition: (expression_statement (binary_expression
+      left: (identifier)
+      right: (identifier)))
+    increment: (update_expression
+      argument: (identifier))
+    body: (statement_block)))
 
 ============================================
 For-in statements
@@ -231,6 +287,17 @@ for (var item in items || {})
 for (const {thing} in things)
   thing();
 
+for (x in a, b, c)
+  foo();
+
+for (x[i] in a) {}
+
+for (x.y in a) {}
+
+for ([a, b] in c) {}
+
+for ((a) in b) {}
+
 ---
 
 (program
@@ -241,7 +308,27 @@ for (const {thing} in things)
   (for_in_statement
     (object_pattern (shorthand_property_identifier))
     (identifier)
-    (expression_statement (call_expression (identifier) (arguments)))))
+    (expression_statement (call_expression (identifier) (arguments))))
+  (for_in_statement
+    (identifier)
+    (sequence_expression (identifier) (sequence_expression (identifier) (identifier)))
+    (expression_statement (call_expression (identifier) (arguments))))
+  (for_in_statement
+    (subscript_expression (identifier) (identifier))
+    (identifier)
+    (statement_block))
+  (for_in_statement
+    (member_expression (identifier) (property_identifier))
+    (identifier)
+    (statement_block))
+  (for_in_statement
+    (array_pattern (identifier) (identifier))
+    (identifier)
+    (statement_block))
+  (for_in_statement
+    (parenthesized_expression (identifier))
+    (identifier)
+    (statement_block)))
 
 ==========================================
 For loops beginning with an in-expression
@@ -276,14 +363,31 @@ for (let {a, b} of items || [])
 ---
 
 (program
-  (for_of_statement
+  (for_in_statement
     (identifier)
     (identifier)
     (expression_statement (call_expression (identifier) (arguments (identifier)))))
-  (for_of_statement
+  (for_in_statement
     (object_pattern (shorthand_property_identifier) (shorthand_property_identifier))
     (binary_expression (identifier) (array))
     (expression_statement (call_expression (identifier) (arguments (identifier) (identifier))))))
+
+============================================
+For-await-of statements
+============================================
+
+for await (const chunk of stream) {
+  str += chunk;
+}
+
+---
+
+(program
+  (for_in_statement
+    (identifier)
+    (identifier)
+    (statement_block
+      (expression_statement (augmented_assignment_expression (identifier) (identifier))))))
 
 ============================================
 While statements
@@ -292,11 +396,21 @@ While statements
 while (a)
   b();
 
+while (a) {
+
+}
+
 ---
 
 (program
-  (while_statement (parenthesized_expression (identifier))
-    (expression_statement (call_expression (identifier) (arguments)))))
+  (while_statement
+    condition: (parenthesized_expression (identifier))
+    body: (expression_statement (call_expression
+      function: (identifier)
+      arguments: (arguments))))
+  (while_statement
+    condition: (parenthesized_expression (identifier))
+    body: (statement_block)))
 
 ============================================
 Do statements
@@ -307,13 +421,21 @@ do {
 } while (b)
 
 do a; while (b)
+
+do {} while (b)
+
 ---
 
 (program
   (do_statement
-    (statement_block (expression_statement (identifier)))
-    (parenthesized_expression (identifier)))
-  (do_statement (expression_statement (identifier)) (parenthesized_expression (identifier))))
+    body: (statement_block (expression_statement (identifier)))
+    condition: (parenthesized_expression (identifier)))
+  (do_statement
+    body: (expression_statement (identifier))
+    condition: (parenthesized_expression (identifier)))
+  (do_statement
+    body: (statement_block)
+    condition: (parenthesized_expression (identifier))))
 
 ============================================
 Return statements
@@ -495,7 +617,7 @@ throw new Error("uh oh");
 
 (program
   (throw_statement
-    (new_expression (call_expression (identifier) (arguments (string))))))
+    (new_expression (identifier) (arguments (string)))))
 
 ============================================
 Throw statements with sequence expressions
@@ -518,6 +640,7 @@ Try catch finally statements
 try { a; } catch (b) { c; }
 try { d; } finally { e; }
 try { f; } catch { g; } finally { h; }
+try { throw [a, b] } catch ([c, d]) { }
 
 ---
 
@@ -535,22 +658,34 @@ try { f; } catch { g; } finally { h; }
     (catch_clause
       (statement_block (expression_statement (identifier))))
     (finally_clause
-      (statement_block (expression_statement (identifier))))))
+      (statement_block (expression_statement (identifier)))))
+  (try_statement
+    (statement_block (throw_statement (array (identifier) (identifier))))
+    (catch_clause
+      (array_pattern (identifier) (identifier))
+      (statement_block))))
 
 ============================================
 Empty statements
 ============================================
 
 if (true) { ; };;;
+if (true) {} else {}
 
 ---
 
 (program
-  (if_statement (parenthesized_expression (true)) (statement_block
-    (empty_statement)))
+  (if_statement
+    (parenthesized_expression (true))
+    (statement_block (empty_statement)))
   (empty_statement)
   (empty_statement)
-  (empty_statement))
+  (empty_statement)
+  (if_statement
+    (parenthesized_expression (true))
+    (statement_block)
+    (else_clause
+      (statement_block))))
 
 ============================================
 Labeled statements
@@ -565,17 +700,42 @@ for (;;) {
   }
 }
 
+label
+: {
+  break label;
+}
+
+async:
+while (true) {
+  continue async;
+}
+
 ---
 
 (program
-  (labeled_statement (statement_identifier)
+  (labeled_statement
+    label: (statement_identifier)
     (for_statement
-      (empty_statement)
-      (empty_statement)
-      (statement_block
-        (if_statement (parenthesized_expression (identifier))
-          (statement_block (break_statement (statement_identifier)))
-          (statement_block (continue_statement (statement_identifier))))))))
+      initializer: (empty_statement)
+      condition: (empty_statement)
+      body: (statement_block
+        (if_statement
+          condition: (parenthesized_expression (identifier))
+          consequence: (statement_block
+            (break_statement label: (statement_identifier)))
+          alternative: (else_clause
+            (statement_block
+              (continue_statement label: (statement_identifier))))))))
+  (labeled_statement
+    label: (statement_identifier)
+    (statement_block
+      (break_statement label: (statement_identifier))))
+  (labeled_statement
+    label: (statement_identifier)
+    (while_statement
+      condition: (parenthesized_expression (true))
+      body: (statement_block
+        (continue_statement label: (statement_identifier))))))
 
 ============================================
 Debugger statements
@@ -594,9 +754,17 @@ With statements
 
 with (x) { i; }
 
+with (x) { }
+
 ---
 
-(program (with_statement (parenthesized_expression (identifier)) (statement_block (expression_statement (identifier)))))
+(program
+  (with_statement
+    object: (parenthesized_expression (identifier))
+    body: (statement_block (expression_statement (identifier))))
+  (with_statement
+    object: (parenthesized_expression (identifier))
+    body: (statement_block)))
 
 ==========================================
 Hash bang lines

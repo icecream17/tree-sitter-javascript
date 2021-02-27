@@ -1,4 +1,6 @@
-corpus
+test
 build
 script
 examples
+*.log
+test.js
